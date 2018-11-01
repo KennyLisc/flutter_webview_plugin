@@ -76,7 +76,11 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+  }
 
+  Future<void> _setWebview() async {
+
+    await flutterWebviewPlugin.initQbSdk();
     flutterWebviewPlugin.close();
 
     _urlCtrl.addListener(() {
@@ -103,39 +107,39 @@ class _MyHomePageState extends State<MyHomePage> {
 
     _onScrollYChanged =
         flutterWebviewPlugin.onScrollYChanged.listen((double y) {
-      if (mounted) {
-        setState(() {
-          _history.add("Scroll in  Y Direction: $y");
+          if (mounted) {
+            setState(() {
+              _history.add("Scroll in  Y Direction: $y");
+            });
+          }
         });
-      }
-    });
 
     _onScrollXChanged =
         flutterWebviewPlugin.onScrollXChanged.listen((double x) {
-      if (mounted) {
-        setState(() {
-          _history.add("Scroll in  X Direction: $x");
+          if (mounted) {
+            setState(() {
+              _history.add("Scroll in  X Direction: $x");
+            });
+          }
         });
-      }
-    });
 
     _onStateChanged =
         flutterWebviewPlugin.onStateChanged.listen((WebViewStateChanged state) {
-      if (mounted) {
-        setState(() {
-          _history.add('onStateChanged: ${state.type} ${state.url}');
+          if (mounted) {
+            setState(() {
+              _history.add('onStateChanged: ${state.type} ${state.url}');
+            });
+          }
         });
-      }
-    });
 
     _onHttpError =
         flutterWebviewPlugin.onHttpError.listen((WebViewHttpError error) {
-      if (mounted) {
-        setState(() {
-          _history.add('onHttpError: ${error.code} ${error.url}');
+          if (mounted) {
+            setState(() {
+              _history.add('onHttpError: ${error.code} ${error.url}');
+            });
+          }
         });
-      }
-    });
   }
 
   @override

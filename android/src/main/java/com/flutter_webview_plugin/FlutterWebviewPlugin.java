@@ -1,12 +1,13 @@
 package com.flutter_webview_plugin;
 
-
+import android.util.Log;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
 import android.view.Display;
 import android.widget.FrameLayout;
+import com.tencent.smtt.sdk.QbSdk;
 
 import java.util.Map;
 
@@ -23,6 +24,7 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     private WebviewManager webViewManager;
     static MethodChannel channel;
     private static final String CHANNEL_NAME = "flutter_webview_plugin";
+    private static boolean qbSdkLoaded = false;
 
     public static void registerWith(PluginRegistry.Registrar registrar) {
         channel = new MethodChannel(registrar.messenger(), CHANNEL_NAME);
@@ -38,6 +40,12 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     @Override
     public void onMethodCall(MethodCall call, MethodChannel.Result result) {
         switch (call.method) {
+            case "initQbSdk":
+                initQbSdk(call, result);
+                break;
+            case "start":
+                openUrl(call, result);
+                break;
             case "launch":
                 openUrl(call, result);
                 break;
@@ -75,6 +83,36 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
                 result.notImplemented();
                 break;
         }
+    }
+
+    private void initQbSdk(MethodCall call, final MethodChannel.Result result) {
+        if (qbSdkLoaded) {
+            result.success(null);
+            return;
+        }
+
+        qbSdkLoaded = true;
+        //搜集本地tbs内核信息并上报服务器，服务器返回结果决定使用哪个内核。
+        QbSdk.PreInitCallback cb = new QbSdk.PreInitCallback() {
+
+            @Override
+            public void onViewInitFinished(boolean arg0) {
+                // TODO Auto-generated method stub
+                //x5內核初始化完成的回调，为true表示x5内核加载成功，否则表示x5内核加载失败，会自动切换到系统内核。
+                Log.d("app", " onViewInitFinished is " + arg0);
+                result.success(null);
+            }
+
+            @Override
+            public void onCoreInitFinished() {
+                // TODO Auto-generated method stub
+                result.success(null);
+            }
+        };
+        //x5内核初始化接口
+        QbSdk.initX5Environment(activity.getApplicationContext(), cb);
+        //https://www.jianshu.com/p/8ee549bdcbb8
+
     }
 
     private void openUrl(MethodCall call, MethodChannel.Result result) {

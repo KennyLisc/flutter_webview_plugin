@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 const _kChannel = 'flutter_webview_plugin';
 
@@ -97,17 +99,17 @@ class FlutterWebviewPlugin {
   /// - [scrollBar]: enable or disable scrollbar
   Future<Null> launch(String url,
       {Map<String, String> headers,
-      bool withJavascript,
-      bool clearCache,
-      bool clearCookies,
-      bool hidden,
-      bool enableAppScheme,
-      Rect rect,
-      String userAgent,
-      bool withZoom,
-      bool withLocalStorage,
-      bool withLocalUrl,
-      bool scrollBar}) async {
+        bool withJavascript,
+        bool clearCache,
+        bool clearCookies,
+        bool hidden,
+        bool enableAppScheme,
+        Rect rect,
+        String userAgent,
+        bool withZoom,
+        bool withLocalStorage,
+        bool withLocalUrl,
+        bool scrollBar}) async {
     final args = <String, dynamic>{
       'url': url,
       'withJavascript': withJavascript ?? true,
@@ -164,6 +166,12 @@ class FlutterWebviewPlugin {
 
   // Shows the webview
   Future show() => _channel.invokeMethod('show');
+
+  Future<void> initQbSdk() async {
+    if (Platform.isAndroid) {
+      await _channel.invokeMethod('initQbSdk');
+    }
+  }
 
   // Reload webview with a new url
   Future reloadUrl(String url) async {

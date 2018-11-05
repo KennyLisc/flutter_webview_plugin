@@ -28,11 +28,40 @@ public class BrowserClient extends WebViewClient {
         FlutterWebviewPlugin.channel.invokeMethod("onState", data);
     }
 
+    static final String consoleLogJS = "(function() {" +
+            "   var oldLogs = {" +
+            "       'log': console.log," +
+            "       'debug': console.debug," +
+            "       'error': console.error," +
+            "       'info': console.info," +
+            "       'warn': console.warn" +
+            "   };" +
+            "   for (var k in oldLogs) {" +
+            "       (function(oldLog) {" +
+            "           console[oldLog] = function() {" +
+            "               var message = '';" +
+            "               for (var i in arguments) {" +
+            "                   if (message == '') {" +
+            "                       message += arguments[i];" +
+            "                   }" +
+            "                   else {" +
+            "                       message += ' ' + arguments[i];" +
+            "                   }" +
+            "               }" +
+            "               oldLogs[oldLog].call(console, message);" +
+            "           }" +
+            "       })(k);" +
+            "   }" +
+            "})();";
+
     @Override
     public void onPageFinished(WebView view, String url) {
         super.onPageFinished(view, url);
         Map<String, Object> data = new HashMap<>();
         data.put("url", url);
+
+        view.evaluateJavascript(consoleLogJS, null);
+        view.evaluateJavascript(JavaScriptBridgeInterface.flutterInAppBroserJSClass, null);
 
         FlutterWebviewPlugin.channel.invokeMethod("onUrlChanged", data);
 

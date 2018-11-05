@@ -48,6 +48,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   // Instance of WebView plugin
   final flutterWebviewPlugin = new FlutterWebviewPlugin();
+  int indexTest = -1;
 
   // On destroy stream
   StreamSubscription _onDestroy;
@@ -76,13 +77,18 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    _setWebview();
   }
 
   Future<void> _setWebview() async {
 
-    await flutterWebviewPlugin.initQbSdk();
+    // await flutterWebviewPlugin.initQbSdk();
     flutterWebviewPlugin.close();
 
+    int indexTest = flutterWebviewPlugin.addJavaScriptHandler('handlerNameTest', (arguments) async {
+      print("flutter handlerNameTest arguments, ");
+      print(arguments); // it prints: [1, 5, string, {key: 5}, [4, 6, 8]]
+    });
     _urlCtrl.addListener(() {
       selectedUrl = _urlCtrl.text;
     });
@@ -125,6 +131,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
     _onStateChanged =
         flutterWebviewPlugin.onStateChanged.listen((WebViewStateChanged state) {
+          print('onStateChanged changed.');
+          if (state.type == WebViewState.finishLoad) {
+            _injectScriptCode();
+          }
           if (mounted) {
             setState(() {
               _history.add('onStateChanged: ${state.type} ${state.url}');
@@ -142,6 +152,10 @@ class _MyHomePageState extends State<MyHomePage> {
         });
   }
 
+  Future<void> _injectScriptCode() async {
+    await flutterWebviewPlugin.injectScriptCode("window.assis_inappbrowser.callHandler('handlerNameTest', 1, 5,'string', {'key': 5}, [4,6,8]);");
+  }
+
   @override
   void dispose() {
     // Every listener should be canceled, the same should be done with this stream.
@@ -151,6 +165,8 @@ class _MyHomePageState extends State<MyHomePage> {
     _onHttpError.cancel();
     _onScrollXChanged.cancel();
     _onScrollYChanged.cancel();
+
+    flutterWebviewPlugin.removeJavaScriptHandler('handlerNameTest', indexTest);
 
     flutterWebviewPlugin.dispose();
 

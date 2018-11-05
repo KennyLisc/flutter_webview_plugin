@@ -10,6 +10,16 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Picture;
+import android.os.Build;
+import android.util.AttributeSet;
+import android.util.JsonReader;
+import android.util.JsonToken;
+import android.util.Log;
+
 import com.tencent.smtt.sdk.CookieManager;
 import com.tencent.smtt.sdk.ValueCallback;
 import com.tencent.smtt.sdk.WebChromeClient;
@@ -22,6 +32,12 @@ import android.widget.FrameLayout;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
@@ -34,6 +50,7 @@ import static android.app.Activity.RESULT_OK;
 
 class WebviewManager {
 
+    static final String LOG_TAG = "FlutterWebview";
     private ValueCallback<Uri> mUploadMessage;
     private ValueCallback<Uri[]> mUploadMessageArray;
     private final static int FILECHOOSER_RESULTCODE=1;
@@ -173,6 +190,8 @@ class WebviewManager {
                 return true;
             }
         });
+
+        webView.addJavascriptInterface(new JavaScriptBridgeInterface(), JavaScriptBridgeInterface.name);
     }
 
     private void clearCookies() {
@@ -310,5 +329,87 @@ class WebviewManager {
         if (webView != null){
             webView.stopLoading();
         }
+    }
+
+    public void loadUrl(String url, MethodChannel.Result result) {
+        if (!url.isEmpty()) {
+            webView.loadUrl(url);
+        } else {
+            result.error(LOG_TAG, "url is empty", null);
+            return;
+        }
+        result.success(true);
+    }
+
+    public void loadUrl(String url, Map<String, String> headers, MethodChannel.Result result) {
+        if (!url.isEmpty()) {
+            webView.loadUrl(url, headers);
+        } else {
+            result.error(LOG_TAG, "url is empty", null);
+            return;
+        }
+        result.success(true);
+    }
+
+    public void injectDeferredObject(String source, String jsWrapper, final MethodChannel.Result result) {
+        String scriptToInject;
+        if (jsWrapper != null) {
+            org.json.JSONArray jsonEsc = new org.json.JSONArray();
+            jsonEsc.put(source);
+            String jsonRepr = jsonEsc.toString();
+            String jsonSourceString = jsonRepr.substring(1, jsonRepr.length() - 1);
+            scriptToInject = String.format(jsWrapper, jsonSourceString);
+        } else {
+            scriptToInject = source;
+        }
+        final String finalScriptToInject = scriptToInject;
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+                    // This action will have the side-effect of blurring the currently focused element
+                    webView.loadUrl("javascript:" + finalScriptToInject);
+                } else {
+                    webView.evaluateJavascript(finalScriptToInject, new ValueCallback<String>() {
+                        @Override
+                        public void onReceiveValue(String s) {
+                            if (result == null)
+                                return;
+
+                            JsonReader reader = new JsonReader(new StringReader(s));
+
+                            // Must set lenient to parse single values
+                            reader.setLenient(true);
+
+                            try {
+                                String msg;
+                                if (reader.peek() == JsonToken.STRING) {
+                                    msg = reader.nextString();
+
+                                    JsonReader reader2 = new JsonReader(new StringReader(msg));
+                                    reader2.setLenient(true);
+
+                                    if (reader2.peek() == JsonToken.STRING)
+                                        msg = reader2.nextString();
+
+                                    result.success(msg);
+                                } else {
+                                    result.success("");
+                                }
+
+                            } catch (IOException e) {
+                                Log.e(LOG_TAG, "IOException", e);
+                            } finally {
+                                try {
+                                    reader.close();
+                                } catch (IOException e) {
+                                    // NOOP
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        });
     }
 }

@@ -1,12 +1,21 @@
-import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
+import 'dart:io';
+import 'dart:async';
+import 'dart:collection';
+import 'dart:typed_data';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter/gestures.dart';
+
 
 const _kChannel = 'flutter_webview_plugin';
+
+typedef Future<dynamic> ListenerCallback(MethodCall call);
+typedef Future<void> JavaScriptHandlerCallback(List<dynamic> arguments);
 
 // TODO: more general state for iOS/android
 enum WebViewState { shouldStart, startLoad, finishLoad }
@@ -25,12 +34,33 @@ class FlutterWebviewPlugin {
   final _onScrollYChanged = new StreamController<double>.broadcast();
   final _onHttpError = new StreamController<WebViewHttpError>.broadcast();
 
+  Map<String, List<JavaScriptHandlerCallback>> javaScriptHandlersMap = HashMap<String, List<JavaScriptHandlerCallback>>();
+
   static FlutterWebviewPlugin _instance;
 
   factory FlutterWebviewPlugin() => _instance ??= new FlutterWebviewPlugin._();
 
   FlutterWebviewPlugin._() {
     _channel.setMethodCallHandler(_handleMessages);
+  }
+
+  int addJavaScriptHandler(String handlerName, JavaScriptHandlerCallback callback) {
+    print('addJavaScriptHandler $handlerName');
+    javaScriptHandlersMap.putIfAbsent(handlerName, () => <JavaScriptHandlerCallback>[]);
+
+    javaScriptHandlersMap[handlerName].add(callback);
+    return javaScriptHandlersMap[handlerName].indexOf(callback);
+  }
+
+  bool removeJavaScriptHandler(String handlerName, int index) {
+    try {
+      javaScriptHandlersMap[handlerName].removeAt(index);
+      return true;
+    }
+    on RangeError catch(e) {
+      print(e);
+    }
+    return false;
   }
 
   Future<Null> _handleMessages(MethodCall call) async {
@@ -57,7 +87,24 @@ class FlutterWebviewPlugin {
         _onHttpError.add(
             WebViewHttpError(call.arguments['code'], call.arguments['url']));
         break;
+      case 'onCallJsHandler':
+        final String handlerName = call.arguments['handlerName'];
+        final List<dynamic> args = jsonDecode(call.arguments['args']);
+
+        print('onCallJsHandler start');
+        if (javaScriptHandlersMap.containsKey(handlerName)) {
+          for (var handler in javaScriptHandlersMap[handlerName]) {
+            handler(args);
+          }
+        }
+        break;
     }
+  }
+
+  Future<String> injectScriptCode(String source) async {
+    final Map<String, dynamic> args = <String, dynamic>{};
+    args.putIfAbsent('source', () => source);
+    return await _channel.invokeMethod('injectScriptCode', args);
   }
 
   /// Listening the OnDestroy LifeCycle Event for Android
